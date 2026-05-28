@@ -1,5 +1,6 @@
 import { z } from "zod/v3";
-import { getAppointment } from "../db/store.js";
+import { getRequest, getAppointment } from "../db/store.js";
+import { requireAuth, authErrorResponse } from "../auth.js";
 
 export const detailsInputShape = {
   appointment_id: z
@@ -8,16 +9,28 @@ export const detailsInputShape = {
 };
 
 export async function getAppointmentDetailsHandler(args: { appointment_id: string }) {
+  // Account isolation: only the account that owns this appointment can see it
+  let auth;
+  try {
+    auth = requireAuth();
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
   const apt = getAppointment(args.appointment_id);
   if (!apt) {
     return {
       isError: true,
-      content: [
-        {
-          type: "text" as const,
-          text: `No appointment found with id ${args.appointment_id}.`,
-        },
-      ],
+      content: [{ type: "text" as const, text: `No appointment found with id ${args.appointment_id}.` }],
+    };
+  }
+
+  // Security: verify the appointment's parent request belongs to this account
+  const parentRequest = getRequest(apt.request_id);
+  if (!parentRequest || parentRequest.api_key !== auth.api_key) {
+    return {
+      isError: true,
+      content: [{ type: "text" as const, text: `No appointment found with id ${args.appointment_id}.` }],
     };
   }
 

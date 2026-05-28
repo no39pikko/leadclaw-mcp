@@ -199,7 +199,44 @@ app.all("/mcp", async (req, res) => {
   }
 });
 
-// ---- Admin UI ----
+// ---- Admin UI (password protected) ----
+
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
+
+app.use("/admin", (req, res, next) => {
+  // Skip auth if ADMIN_SECRET is not set (local dev convenience)
+  if (!ADMIN_SECRET) { next(); return; }
+
+  // Check session cookie
+  const cookie = req.headers.cookie ?? "";
+  const hasSession = cookie.includes(`admin_auth=${ADMIN_SECRET}`);
+  if (hasSession) { next(); return; }
+
+  // Show login form for GET requests that aren't the login POST
+  if (req.method === "GET" && req.path !== "/login") {
+    res.send(`<!DOCTYPE html>
+<html><head><title>Admin Login — LeadClaw</title>
+<style>*{box-sizing:border-box;font-family:system-ui,sans-serif}body{background:#1e293b;display:flex;align-items:center;justify-content:center;min-height:100vh}.card{background:white;padding:2.5rem;border-radius:12px;width:340px}.h1{font-size:1.4rem;font-weight:700;margin-bottom:1.5rem;color:#1e293b}input{width:100%;padding:.6rem .8rem;border:1px solid #d1d5db;border-radius:6px;font-size:.9rem;margin-bottom:1rem}button{width:100%;padding:.7rem;background:#4f46e5;color:white;border:none;border-radius:6px;font-size:.95rem;cursor:pointer}</style>
+</head><body><div class="card">
+<div class="h1">⚡ LeadClaw Admin</div>
+<form method="POST" action="/admin/login">
+  <input type="password" name="secret" placeholder="Admin password" autofocus>
+  <button type="submit">Login</button>
+</form></div></body></html>`);
+    return;
+  }
+  next();
+});
+
+app.post("/admin/login", (req, res) => {
+  const { secret } = req.body as { secret: string };
+  if (secret === ADMIN_SECRET) {
+    res.setHeader("Set-Cookie", `admin_auth=${ADMIN_SECRET}; Path=/admin; HttpOnly; SameSite=Strict`);
+    res.redirect("/admin");
+  } else {
+    res.redirect("/admin");
+  }
+});
 
 app.use("/admin", adminRouter);
 

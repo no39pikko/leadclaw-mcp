@@ -1,5 +1,6 @@
 import { z } from "zod/v3";
 import { getRequest } from "../db/store.js";
+import { requireAuth, authErrorResponse } from "../auth.js";
 
 export const statusInputShape = {
   request_id: z
@@ -29,12 +30,27 @@ function phaseFor(elapsedMs: number, totalCount: number): { phase: Phase; confir
 }
 
 export async function checkStatusHandler(args: { request_id: string }) {
+  // Account isolation: only the account that created this request can see it
+  let auth;
+  try {
+    auth = requireAuth();
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
   const req = getRequest(args.request_id);
   if (!req) {
-    const msg = `No request found with id ${args.request_id}.`;
     return {
       isError: true,
-      content: [{ type: "text" as const, text: msg }],
+      content: [{ type: "text" as const, text: `No request found with id ${args.request_id}.` }],
+    };
+  }
+
+  // Security: reject if request belongs to a different account
+  if (req.api_key !== auth.api_key) {
+    return {
+      isError: true,
+      content: [{ type: "text" as const, text: `No request found with id ${args.request_id}.` }],
     };
   }
 
