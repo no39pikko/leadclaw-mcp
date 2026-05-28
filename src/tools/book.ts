@@ -98,6 +98,8 @@ export async function bookAppointmentsHandler(args: {
       notes: args.notes,
     },
     appointments,
+    credit_status: "reserved",
+    credits_count: args.count,
   });
 
   const eta = new Date(created_at + ETA_HOURS * 60 * 60 * 1000).toISOString();

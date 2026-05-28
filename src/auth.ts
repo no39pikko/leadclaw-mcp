@@ -1,12 +1,18 @@
 import { getAccount, type Account } from "./db/store.js";
+import { apiKeyContext } from "./v2/context.js";
 
 export type AuthResult = {
   api_key: string;
   account: Account;
 };
 
+/**
+ * Returns the authenticated account for the current request.
+ * - v2 HTTP mode: reads api_key from AsyncLocalStorage (set by Bearer token middleware)
+ * - v1 stdio mode: reads api_key from LEADCLAW_API_KEY environment variable
+ */
 export function requireAuth(): AuthResult {
-  const api_key = process.env.LEADCLAW_API_KEY;
+  const api_key = apiKeyContext.getStore() ?? process.env.LEADCLAW_API_KEY;
   if (!api_key) {
     throw new Error(
       "LEADCLAW_API_KEY is not set. Add it to your Claude Desktop MCP config under 'env'."

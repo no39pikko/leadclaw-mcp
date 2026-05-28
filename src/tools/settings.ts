@@ -84,9 +84,13 @@ export async function getAccountInfoHandler(_args: Record<string, never>) {
 
   const { account } = auth;
 
+  const creditsLine = account.credits_reserved > 0
+    ? `Credits: ${account.credits} available, ${account.credits_reserved} reserved (for pending requests)`
+    : `Credits: ${account.credits}`;
+
   const lines = [
     `Account: ${account.company_name || "(not set)"}`,
-    `Credits: ${account.credits}`,
+    creditsLine,
     `Default industry: ${account.industry || "(not set)"}`,
     `Default role: ${account.target_role || "(not set)"}`,
     `ICP: ${account.icp || "(not set)"}`,
@@ -97,6 +101,7 @@ export async function getAccountInfoHandler(_args: Record<string, never>) {
     structuredContent: {
       company_name: account.company_name,
       credits: account.credits,
+      credits_reserved: account.credits_reserved,
       industry: account.industry,
       target_role: account.target_role,
       icp: account.icp,
