@@ -1,0 +1,31 @@
+export const PEOPLE: string[] = [
+  "Sarah Chen",
+  "Marcus Rodriguez",
+  "Priya Patel",
+  "James Kim",
+  "Aisha Williams",
+  "David Park",
+  "Emily Tanaka",
+  "Rafael Ortega",
+  "Hannah Goldberg",
+  "Daniel Okafor",
+  "Mei Lin",
+  "Jordan Reyes",
+  "Olivia Brennan",
+  "Karim Haddad",
+  "Sofia Ivanova",
+  "Tomas Müller",
+  "Leah Anderson",
+  "Vikram Shah",
+  "Grace Liu",
+  "Benjamin Foster",
+];
+
+export const ROLES_DEFAULT: string[] = [
+  "CEO",
+  "CTO",
+  "VP Sales",
+  "Head of Marketing",
+  "Director of Operations",
+  "CRO",
+];

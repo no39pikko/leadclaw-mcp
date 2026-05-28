@@ -1,0 +1,22 @@
+{
+  "name": "leadclaw-mcp",
+  "version": "0.1.0",
+  "description": "LeadClaw MCP server — book sales appointments via Claude",
+  "type": "module",
+  "bin": {
+    "leadclaw-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
