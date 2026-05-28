@@ -262,16 +262,21 @@ export function addCredits(api_key: string, amount: number): Account | undefined
 }
 
 export function deductCredits(api_key: string, amount: number): { ok: boolean; remaining: number } {
-  const account = getAccount(api_key);
-  if (!account) return { ok: false, remaining: 0 };
-  if (account.credits < amount) return { ok: false, remaining: account.credits };
-  db.prepare(`
+  // Single atomic UPDATE — the WHERE credits >= ? guard prevents over-deduction.
+  // We skip the pre-read and rely entirely on changes === 0 to detect failure,
+  // eliminating any TOCTOU window between the balance check and the write.
+  const result = db.prepare(`
     UPDATE accounts
     SET credits = credits - ?, credits_reserved = credits_reserved + ?
     WHERE api_key = ? AND credits >= ?
   `).run(amount, amount, api_key, amount);
-  const updated = getAccount(api_key)!;
-  return { ok: true, remaining: updated.credits };
+
+  if (result.changes === 0) {
+    const account = getAccount(api_key);
+    return { ok: false, remaining: account?.credits ?? 0 };
+  }
+
+  return { ok: true, remaining: getAccount(api_key)!.credits };
 }
 
 export function refundCredits(api_key: string, request_id: string): boolean {
@@ -290,11 +295,14 @@ export function refundCredits(api_key: string, request_id: string): boolean {
 export function consumeCredits(api_key: string, request_id: string): boolean {
   const req = getRequest(request_id);
   if (!req || req.credit_status !== "reserved") return false;
-  db.prepare(`
-    UPDATE accounts SET credits_reserved = credits_reserved - ? WHERE api_key = ?
-  `).run(req.credits_count, api_key);
-  db.prepare("UPDATE requests SET credit_status = 'consumed' WHERE request_id = ?")
-    .run(request_id);
+  // Both writes must succeed or neither does — keep accounts and requests in sync.
+  const consume = db.transaction(() => {
+    db.prepare("UPDATE accounts SET credits_reserved = credits_reserved - ? WHERE api_key = ?")
+      .run(req.credits_count, api_key);
+    db.prepare("UPDATE requests SET credit_status = 'consumed' WHERE request_id = ?")
+      .run(request_id);
+  });
+  consume();
   return true;
 }
 
