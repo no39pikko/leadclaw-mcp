@@ -10,11 +10,12 @@ import {
   accountInfoInputShape,
   getAccountInfoHandler,
 } from "./tools/settings.js";
+import { calendarInputShape, addToCalendarTool } from "./tools/calendar.js";
 
 async function main() {
   const server = new McpServer({
     name: "leadclaw",
-    version: "0.2.0",
+    version: "0.3.0",
   });
 
   // E-2: Account setup tools
@@ -82,6 +83,21 @@ async function main() {
       inputSchema: detailsInputShape,
     },
     getAppointmentDetailsHandler
+  );
+
+  // E-5: Google Calendar integration
+  server.registerTool(
+    "add_appointment_to_calendar",
+    {
+      title: "Add appointment to Google Calendar",
+      description:
+        "Add a confirmed LeadClaw appointment to Google Calendar. " +
+        "Creates an event with full BANT briefing, SDR notes, and meeting link in the description. " +
+        "Use when the user says 'add to calendar', 'put this on my calendar', or 'schedule this meeting'. " +
+        "Requires Google Calendar to be authorized first (npm run admin google-auth).",
+      inputSchema: calendarInputShape,
+    },
+    addToCalendarTool
   );
 
   const transport = new StdioServerTransport();

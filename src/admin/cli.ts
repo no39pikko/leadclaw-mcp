@@ -9,10 +9,12 @@
  *   npm run admin list-accounts
  *   npm run admin show-account <api_key>
  *   npm run admin create-payment-link <api_key> [--plan starter|growth|pro] [--credits N]
+ *   npm run admin google-auth                  (authorize Google Calendar access)
  */
 
 import { createAccount, addCredits, listAccounts, updateAccount, getAccount } from "../db/store.js";
 import { createPaymentLink } from "../stripe/links.js";
+import { getAuthUrl, exchangeCode, hasCredentials, isAuthorized } from "../calendar/auth.js";
 
 const [, , command, ...rest] = process.argv;
 
@@ -28,6 +30,8 @@ Commands:
   show-account <api_key>                                       Show account details
   create-payment-link <api_key> [--plan starter|growth|pro]   Generate Stripe payment link
                                 [--credits N]                  (requires STRIPE_SECRET_KEY)
+  google-auth                                                  Authorize Google Calendar access
+                                                               (requires GOOGLE_CLIENT_ID/SECRET)
 
 Plans:
   starter  $300   3 credits
@@ -159,6 +163,86 @@ switch (command) {
       console.error(`Error: ${msg}`);
       process.exit(1);
     }
+    break;
+  }
+
+  case "google-auth": {
+    if (!hasCredentials()) {
+      console.error(
+        "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET が未設定です。\n" +
+        ".env に追加してから再実行してください。\n\n" +
+        "取得方法:\n" +
+        "  1. https://console.cloud.google.com/ でプロジェクト作成\n" +
+        "  2. 「APIとサービス」→「認証情報」→「OAuthクライアントID」を作成\n" +
+        "     種類: デスクトップアプリ\n" +
+        "     リダイレクトURI: http://localhost:3002/oauth2callback\n" +
+        "  3. クライアントID と クライアントシークレットを .env に記入"
+      );
+      process.exit(1);
+    }
+
+    if (isAuthorized()) {
+      console.log("✅ Google Calendar はすでに認証済みです。");
+      break;
+    }
+
+    const { createServer } = await import("node:http");
+    const { exec } = await import("node:child_process");
+
+    const authUrl = getAuthUrl();
+    console.log("\n🔗 ブラウザでGoogleアカウントを認証してください...");
+    console.log(`   ブラウザが開かない場合は以下のURLへアクセス:\n   ${authUrl}\n`);
+
+    // Open browser
+    const platform = process.platform;
+    const openCmd =
+      platform === "win32" ? `start "" "${authUrl}"`
+      : platform === "darwin" ? `open "${authUrl}"`
+      : `xdg-open "${authUrl}"`;
+    exec(openCmd);
+
+    // Wait for OAuth callback on localhost:3002
+    await new Promise<void>((resolve, reject) => {
+      const server = createServer(async (req, res) => {
+        const url = new URL(req.url ?? "/", "http://localhost:3002");
+        const code = url.searchParams.get("code");
+        const error = url.searchParams.get("error");
+
+        if (error) {
+          res.writeHead(400).end(`Authorization failed: ${error}`);
+          server.close();
+          reject(new Error(`Google 認証失敗: ${error}`));
+          return;
+        }
+
+        if (code) {
+          try {
+            await exchangeCode(code);
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }).end(
+              "<html><body><h2>✅ Google Calendar の認証が完了しました！</h2>" +
+              "<p>このウィンドウを閉じてターミナルに戻ってください。</p></body></html>"
+            );
+            console.log("✅ Google Calendar の認証が完了しました！");
+            server.close();
+            resolve();
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            res.writeHead(500).end(`Error: ${msg}`);
+            server.close();
+            reject(err);
+          }
+        }
+      });
+
+      server.listen(3002, () => {
+        console.log("   http://localhost:3002 でコールバックを待機中...\n");
+      });
+
+      setTimeout(() => {
+        server.close();
+        reject(new Error("タイムアウト: 5分以内に認証が完了しませんでした"));
+      }, 5 * 60 * 1000);
+    });
     break;
   }
 
