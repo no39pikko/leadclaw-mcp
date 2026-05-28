@@ -5,11 +5,14 @@
  * Usage:
  *   npm run admin create-account [--company "Acme Corp"] [--credits 3]
  *   npm run admin add-credits <api_key> <amount>
- *   npm run admin list-accounts
  *   npm run admin set-credits <api_key> <amount>
+ *   npm run admin list-accounts
+ *   npm run admin show-account <api_key>
+ *   npm run admin create-payment-link <api_key> [--plan starter|growth|pro] [--credits N]
  */
 
 import { createAccount, addCredits, listAccounts, updateAccount, getAccount } from "../db/store.js";
+import { createPaymentLink } from "../stripe/links.js";
 
 const [, , command, ...rest] = process.argv;
 
@@ -18,11 +21,18 @@ function printHelp() {
 LeadClaw Admin CLI
 
 Commands:
-  create-account [--company "Name"] [--credits N]   Create a new customer account
-  add-credits <api_key> <amount>                     Add credits to an account
-  set-credits <api_key> <amount>                     Set credits to exact amount
-  list-accounts                                      List all accounts
-  show-account <api_key>                             Show account details
+  create-account [--company "Name"] [--credits N]              Create a new customer account
+  add-credits <api_key> <amount>                               Add credits to an account
+  set-credits <api_key> <amount>                               Set credits to exact amount
+  list-accounts                                                List all accounts
+  show-account <api_key>                                       Show account details
+  create-payment-link <api_key> [--plan starter|growth|pro]   Generate Stripe payment link
+                                [--credits N]                  (requires STRIPE_SECRET_KEY)
+
+Plans:
+  starter  $300   3 credits
+  growth   $900  10 credits
+  pro     $2000  25 credits
 `);
 }
 
@@ -112,6 +122,43 @@ switch (command) {
       process.exit(1);
     }
     console.log(JSON.stringify(account, null, 2));
+    break;
+  }
+
+  case "create-payment-link": {
+    const [api_key] = rest;
+    if (!api_key) {
+      console.error("Usage: create-payment-link <api_key> [--plan starter|growth|pro] [--credits N]");
+      process.exit(1);
+    }
+    const planIdx = rest.indexOf("--plan");
+    const creditsIdx = rest.indexOf("--credits");
+    const plan = planIdx >= 0 ? rest[planIdx + 1] : "starter";
+    const credits = creditsIdx >= 0 ? parseInt(rest[creditsIdx + 1], 10) : undefined;
+
+    const account = getAccount(api_key);
+    if (!account) {
+      console.error(`Account not found: ${api_key}`);
+      process.exit(1);
+    }
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error("STRIPE_SECRET_KEY not set. Export it first:\n  export STRIPE_SECRET_KEY=sk_...");
+      process.exit(1);
+    }
+
+    try {
+      const result = await createPaymentLink({ api_key, plan, credits });
+      console.log(`\n✅ Payment link created:`);
+      console.log(`   Amount:  $${result.amount_usd}`);
+      console.log(`   Credits: ${result.credits}`);
+      console.log(`   URL:     ${result.url}`);
+      console.log(`\nSend this link to: ${account.company_name || api_key}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`Error: ${msg}`);
+      process.exit(1);
+    }
     break;
   }
 
