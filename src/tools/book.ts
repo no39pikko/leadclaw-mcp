@@ -1,6 +1,7 @@
 import { z } from "zod/v3";
-import { putRequest } from "../db/store.js";
+import { putRequest, deductCredits } from "../db/store.js";
 import { generateAppointments, newId } from "../mock/generator.js";
+import { requireAuth, authErrorResponse } from "../auth.js";
 
 export const bookInputShape = {
   location: z
@@ -15,11 +16,11 @@ export const bookInputShape = {
   industry: z
     .string()
     .optional()
-    .describe('Target industry vertical, e.g. "AI startups", "healthcare SaaS".'),
+    .describe("Target industry vertical. Omit to use your account default."),
   target_role: z
     .string()
     .optional()
-    .describe('Target buyer role, e.g. "CEO", "VP Sales", "CTO".'),
+    .describe('Target buyer role, e.g. "CEO", "VP Sales". Omit to use your account default.'),
   date_range: z
     .string()
     .optional()
@@ -45,24 +46,53 @@ export async function bookAppointmentsHandler(args: {
   budget_per_appointment?: number;
   notes?: string;
 }) {
+  let auth;
+  try {
+    auth = requireAuth();
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
+  const { api_key, account } = auth;
+
+  // E-3: Check credit balance before accepting the request
+  if (account.credits < args.count) {
+    const msg =
+      `Insufficient credits. You have ${account.credits} credit(s) but requested ${args.count} appointment(s). ` +
+      `Please purchase more credits to continue.`;
+    return {
+      isError: true,
+      content: [{ type: "text" as const, text: msg }],
+    };
+  }
+
+  // E-2: Merge stored account defaults with request params
+  const industry = args.industry ?? (account.industry || undefined);
+  const target_role = args.target_role ?? (account.target_role || undefined);
+
   const request_id = newId("req");
   const created_at = Date.now();
+
   const appointments = generateAppointments({
     request_id,
     count: args.count,
-    target_role: args.target_role,
+    target_role,
     date_range: args.date_range,
-    industry: args.industry,
+    industry,
   });
+
+  // E-3: Deduct credits upfront (1 credit = 1 appointment)
+  const { remaining } = deductCredits(api_key, args.count);
 
   putRequest({
     request_id,
+    api_key,
     created_at,
     params: {
       location: args.location,
       count: args.count,
-      industry: args.industry,
-      target_role: args.target_role,
+      industry,
+      target_role,
       date_range: args.date_range,
       budget_per_appointment: args.budget_per_appointment,
       notes: args.notes,
@@ -76,14 +106,17 @@ export async function bookAppointmentsHandler(args: {
 
   const summary =
     `Request received. Matching SDRs in ${args.location}` +
-    (args.industry ? ` for ${args.industry}` : "") +
-    (args.target_role ? ` (${args.target_role})` : "") +
-    `. Targeting ${args.count} confirmed appointment${args.count > 1 ? "s" : ""} at up to $${budget}/each ($${totalCap} cap). ETA ${ETA_HOURS}h.`;
+    (industry ? ` for ${industry}` : "") +
+    (target_role ? ` (${target_role})` : "") +
+    `. Targeting ${args.count} confirmed appointment${args.count > 1 ? "s" : ""} at up to $${budget}/each ($${totalCap} cap). ETA ${ETA_HOURS}h.` +
+    ` Credits remaining: ${remaining}.`;
 
   const payload = {
     request_id,
     status: "processing" as const,
     estimated_completion: eta,
+    credits_used: args.count,
+    credits_remaining: remaining,
     message: summary,
   };
 
