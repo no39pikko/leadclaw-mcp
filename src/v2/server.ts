@@ -243,6 +243,14 @@ app.use("/admin", adminRouter);
 // Admin redirect
 app.get("/", (_req, res) => res.redirect("/admin"));
 
+// Language switcher
+app.get("/set-lang", (req, res) => {
+  const lang = req.query.lang === "en" ? "en" : "ja";
+  const redirect = typeof req.query.redirect === "string" ? req.query.redirect : "/";
+  res.setHeader("Set-Cookie", `lc_lang=${lang}; Path=/; SameSite=Lax; Max-Age=31536000`);
+  res.redirect(redirect);
+});
+
 // ---- Customer Portal ----
 
 app.use("/portal", portalRouter);
