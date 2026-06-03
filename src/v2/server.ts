@@ -36,6 +36,7 @@ import { registerAllTools } from "../tools/register.js";
 import { driverSummary } from "../drivers/registry.js";
 import { leadWebhookRouter } from "./webhook.js";
 import { connectRouter } from "./connect.js";
+import { landingRouter } from "./landing.js";
 
 // ---- Session Store ----
 
@@ -83,6 +84,9 @@ app.use("/webhook", leadWebhookRouter);
 
 // ---- Ad-account OAuth connect ----
 app.use("/connect", connectRouter);
+
+// ---- Hosted landing page + lead form (the link you share / point ads at) ----
+app.use("/lp", landingRouter);
 
 // ---- MCP Endpoint ----
 
