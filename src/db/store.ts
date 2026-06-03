@@ -67,7 +67,7 @@ export type RequestRecord = {
 // ---- DB Initialization ----
 
 mkdirSync(DATA_DIR, { recursive: true });
-const db = new Database(DB_PATH);
+export const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
@@ -135,6 +135,9 @@ function migrateFromJson() {
       for (const r of Object.values(raw.requests ?? {})) {
         insertRequest.run({
           ...r,
+          // Pre-account (v1) requests have no api_key; give them a placeholder
+          // so the migration can't crash on legacy data.
+          api_key: (r as { api_key?: string }).api_key ?? "legacy",
           params: JSON.stringify(r.params),
           appointments: JSON.stringify(r.appointments ?? []),
           credit_status: "consumed", // Legacy requests treated as consumed

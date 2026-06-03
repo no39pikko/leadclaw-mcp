@@ -1,4 +1,12 @@
-# LeadClaw MCP (demo)
+# LeadClaw MCP
+
+> **⚠️ Pivoted to GTM Agent (ads → Speed-to-Lead).** The current product: paid ads capture form-fills, then an AI voice agent calls each lead within ~60s to qualify and book a meeting. Start with **[GTM_AGENT_SPEC.md](GTM_AGENT_SPEC.md)** (the why) and **[RUNBOOK.md](RUNBOOK.md)** (how to run it — works with zero API keys in mock mode).
+>
+> The sections below describe the original v1 managed-SDR demo. Those tools still exist (registered as `[legacy]`) but are superseded by the GTM Agent tools.
+
+---
+
+## LeadClaw MCP (original v1 demo)
 
 Demo MCP server for **LeadClaw** — a service for booking confirmed sales appointments through Claude. Human freelance SDRs handle the outbound; AI handles matching, quality, billing, and reporting. Customers pay only per BANT-qualified meeting that lands on their calendar.
 
