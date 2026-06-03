@@ -29,6 +29,10 @@ import {
   queryAssetsShape, queryAssetsHandler,
   logAssetShape, logAssetHandler,
 } from "./assets.js";
+import {
+  connectAdAccountShape, connectAdAccountHandler,
+  connectionStatusShape, connectionStatusHandler,
+} from "./connect.js";
 
 // Legacy demo tools (original managed-SDR concept; kept for the demo video).
 import { bookInputShape, bookAppointmentsHandler } from "./book.js";
@@ -104,6 +108,22 @@ export function registerAllTools(server: McpServer): void {
     description: "List the account's campaigns with status and budget.",
     inputSchema: listCampaignsShape,
   }, listCampaignsHandler);
+
+  // ---- GTM: ad-account connection (multi-tenant onboarding) ----
+  server.registerTool("connect_ad_account", {
+    title: "Connect the customer's ad account",
+    description:
+      "Get a link the user clicks to connect their own Meta (Facebook) ad account via OAuth. " +
+      "Call this during onboarding, or whenever launch_campaign reports the account isn't connected. " +
+      "Share the returned URL with the user; after they authorize, campaigns run on their ad account.",
+    inputSchema: connectAdAccountShape,
+  }, connectAdAccountHandler);
+
+  server.registerTool("get_connection_status", {
+    title: "Check ad-account connection status",
+    description: "Report whether the customer's ad account (Meta) is connected. Use before launching a campaign.",
+    inputSchema: connectionStatusShape,
+  }, connectionStatusHandler);
 
   // ---- GTM: leads ----
   server.registerTool("get_leads", {

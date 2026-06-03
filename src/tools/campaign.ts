@@ -2,6 +2,7 @@ import { z } from "zod/v3";
 import { requireAuth, authErrorResponse } from "../auth.js";
 import { createCampaign, listCampaigns, updateCampaign } from "../gtm/db.js";
 import { getDrivers } from "../drivers/registry.js";
+import { connectUrl, hasMetaToken } from "../integrations/metaOAuth.js";
 import { ownedCampaign, errorText } from "./gtm_shared.js";
 import type { AdCreative, AdPlatform, CallScript } from "../gtm/types.js";
 
@@ -228,8 +229,14 @@ export async function launchCampaignHandler(args: { campaign_id: string }) {
     return errorText(`Cannot launch yet — missing: ${missing.join(", ")}.`);
   }
 
+  const { ad } = getDrivers();
+  if (ad.name === "meta-lead-ads" && !hasMetaToken(auth.api_key)) {
+    return errorText(
+      `Connect your Meta ad account first — open this link and authorize:\n${connectUrl(auth.api_key)}\nThen run launch_campaign again.`
+    );
+  }
+
   try {
-    const { ad } = getDrivers();
     const result = await ad.launchCampaign(campaign);
     updateCampaign(campaign.id, { status: "active", ad_campaign_id: result.adCampaignId });
 

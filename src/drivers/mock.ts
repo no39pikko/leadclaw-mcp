@@ -55,7 +55,7 @@ export class MockAdDriver implements AdDriver {
   }
   async pauseCampaign(_c: Campaign) {}
   async adjustBudget(_c: Campaign, _b: number) {}
-  async parseLeadWebhook(payload: unknown): Promise<ParsedLead | null> {
+  async parseLeadWebhook(payload: unknown, _campaign?: Campaign): Promise<ParsedLead | null> {
     if (!payload || typeof payload !== "object") return null;
     const p = payload as Record<string, unknown>;
     const consent =

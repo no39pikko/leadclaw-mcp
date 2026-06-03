@@ -23,9 +23,9 @@ export interface AdDriver {
   /**
    * Normalize an incoming lead-form webhook payload. Returns null if unparseable.
    * Async because some platforms (Meta) only send an id and require a follow-up
-   * API call to retrieve the form field data.
+   * API call (with the campaign's account token) to retrieve the form field data.
    */
-  parseLeadWebhook(payload: unknown): Promise<ParsedLead | null>;
+  parseLeadWebhook(payload: unknown, campaign?: Campaign): Promise<ParsedLead | null>;
 }
 
 export interface EnrichDriver {

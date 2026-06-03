@@ -35,6 +35,7 @@ import { portalRouter } from "../portal/index.js";
 import { registerAllTools } from "../tools/register.js";
 import { driverSummary } from "../drivers/registry.js";
 import { leadWebhookRouter } from "./webhook.js";
+import { connectRouter } from "./connect.js";
 
 // ---- Session Store ----
 
@@ -79,6 +80,9 @@ app.get("/health", (_req, res) => {
 
 // ---- Lead-form webhook (execution-loop entry point) ----
 app.use("/webhook", leadWebhookRouter);
+
+// ---- Ad-account OAuth connect ----
+app.use("/connect", connectRouter);
 
 // ---- MCP Endpoint ----
 

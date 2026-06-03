@@ -38,7 +38,7 @@ leadWebhookRouter.post("/lead/:campaignId", async (req, res) => {
   let parsed;
   try {
     const { ad } = getDrivers();
-    parsed = await ad.parseLeadWebhook(req.body);
+    parsed = await ad.parseLeadWebhook(req.body, campaign);
   } catch (err) {
     res.status(400).json({ error: `Could not parse lead payload: ${err instanceof Error ? err.message : String(err)}` });
     return;

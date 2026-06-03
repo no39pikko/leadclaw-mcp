@@ -76,6 +76,36 @@ To demo without a live ad: `submit_test_lead` runs a simulated form-fill through
 
 ---
 
+## Multi-tenant onboarding — connect a customer's Meta account
+
+Shared vs per-customer infrastructure:
+
+| | Owner | Customer's job |
+|---|---|---|
+| **Twilio number / Retell** (calling) | **We own it** — shared across all customers | Nothing; they never see it. (At scale, move to a number *pool* with rotation to avoid "Scam Likely" flags.) |
+| **Meta ad account** (entry) | **Customer's own**, connected via OAuth | Click a link, authorize (seconds) |
+
+How the click-to-connect works (the AI hands them a URL):
+1. Customer (in Claude) → `connect_ad_account` → returns `PUBLIC_URL/connect/meta?api_key=...`.
+2. They open it → redirected to Meta's consent dialog → authorize.
+3. Callback stores their token in `ad_accounts`; `MetaAdDriver` then runs **their** campaigns on **their** ad account.
+4. `launch_campaign` refuses with the connect link until they're connected.
+
+### Two things OAuth can't remove (be honest with customers)
+- **Meta App Review.** To let *external* customers grant the ads scopes, your Meta app must pass App Review (business verification, privacy policy, demo video — days to weeks). **You (dogfood) can connect immediately** by adding yourself as an app *test user* — no review wait. Run App Review in parallel for public launch.
+- **The customer must have a Meta ad account + payment method.** OAuth connects an *existing* account; it can't bypass Meta's billing/identity. We guide them, but that part lives on Meta.
+
+### Setting up the Meta app (one-time, admin)
+1. https://developers.facebook.com → Create App → type "Business".
+2. Add the **Facebook Login** and **Marketing API** products.
+3. OAuth redirect URI: `PUBLIC_URL/connect/meta/callback`.
+4. Put the app id/secret in `.env` as `META_APP_ID` / `META_APP_SECRET`, set `PUBLIC_URL`.
+5. For dogfood now: App roles → add yourself as a test user. For customers: submit App Review for `ads_management`, `leads_retrieval`, `pages_manage_ads`.
+
+(Single-tenant dogfood shortcut: skip OAuth entirely — set `META_ACCESS_TOKEN` + `META_AD_ACCOUNT_ID` and the driver uses that one account.)
+
+---
+
 ## Going live, one driver at a time
 
 Adding a driver's keys to `.env` automatically switches it from mock to live (in `auto`/`live` mode). Check what's live at `GET /health` → `drivers`.
