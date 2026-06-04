@@ -78,11 +78,16 @@ export class RetellCallDriver implements CallDriver {
     const durationMs = (c.end_timestamp ?? 0) - (c.start_timestamp ?? 0);
     const survived = Math.max(0, Math.round(durationMs / 1000));
     const transcript: string = c.transcript ?? "";
-    const reached = survived > 12; // got past the opener
-    const bookedTime: string | undefined = c.call_analysis?.custom_analysis_data?.booked_time;
+    const analysis = c.call_analysis ?? {};
+    const inVoicemail = analysis.in_voicemail === true;
+    // Booking is captured via a custom post-call analysis field on the Retell
+    // agent named `booked_time` (configure it in the agent's analysis settings).
+    const bookedTime: string | undefined = analysis.custom_analysis_data?.booked_time;
 
+    const reached = !inVoicemail && survived > 12; // got past the opener with a human
     let outcome: CallOutcome;
     if (bookedTime) outcome = "booked";
+    else if (inVoicemail) outcome = "voicemail";
     else if (!reached) outcome = survived === 0 ? "no_answer" : "hung_up";
     else outcome = "not_interested";
 
@@ -90,7 +95,7 @@ export class RetellCallDriver implements CallDriver {
       outcome,
       survived_seconds: survived,
       reached_pitch: reached,
-      hung_up_at_open: survived > 0 && survived <= 12,
+      hung_up_at_open: !inVoicemail && survived > 0 && survived <= 12,
       transcript,
       appointment: bookedTime ? { when: bookedTime } : undefined,
     };
