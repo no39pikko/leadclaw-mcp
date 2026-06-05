@@ -12,6 +12,7 @@
 import type { AdDriver } from "./types.js";
 import type { Campaign, ParsedLead } from "../gtm/types.js";
 import { getMetaConnection } from "../integrations/metaOAuth.js";
+import { launchLeadCampaign } from "../integrations/metaMarketing.js";
 
 const GRAPH = "https://graph.facebook.com/v19.0";
 
@@ -28,28 +29,23 @@ export class MetaLeadAdsDriver implements AdDriver {
     return connected ?? process.env.META_AD_ACCOUNT_ID ?? "";
   }
 
+  private pageFor(campaign?: Campaign): string {
+    const connected = campaign ? getMetaConnection(campaign.account_id)?.page_id : undefined;
+    return connected ?? process.env.META_PAGE_ID ?? "";
+  }
+
   async launchCampaign(c: Campaign) {
     const token = this.tokenFor(c);
     const adAccountId = this.adAccountFor(c);
+    const pageId = this.pageFor(c);
     if (!token) throw new Error("No Meta token for this account — connect via connect_ad_account first.");
     if (!adAccountId) throw new Error("No Meta ad account id available for this account.");
+    if (!pageId) throw new Error("No Meta Page id available (connect a Page or set META_PAGE_ID).");
 
-    const res = await fetch(`${GRAPH}/act_${adAccountId}/campaigns`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: `GTM ${c.id}`,
-        objective: "OUTCOME_LEADS",
-        status: "PAUSED",
-        special_ad_categories: [],
-        access_token: token,
-      }),
-    });
-    const data = (await res.json()) as { id?: string; error?: { message: string } };
-    if (!res.ok || !data.id) {
-      throw new Error(`Meta campaign create failed: ${data.error?.message ?? res.status}`);
-    }
-    return { adCampaignId: data.id, status: "PAUSED" };
+    // Builds the full deliverable Lead Ads campaign (form → campaign → ad set →
+    // creative → ad + leadgen webhook). See integrations/metaMarketing.ts.
+    const result = await launchLeadCampaign({ token, adAccountId, pageId, campaign: c });
+    return { adCampaignId: result.adCampaignId, status: result.status };
   }
 
   async pauseCampaign(c: Campaign) {
