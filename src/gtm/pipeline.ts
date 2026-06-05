@@ -105,7 +105,7 @@ export async function runCall(
   }
 
   const { call, calendar, crm } = getDrivers();
-  const result = await call.call(lead, campaign.call_script);
+  const result = await call.call(lead, campaign.call_script, campaign.retell_agent_id ?? undefined);
   recordCallAttempt({
     lead_id: lead.id,
     backend: call.name,

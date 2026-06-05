@@ -3,6 +3,7 @@ import { requireAuth, authErrorResponse } from "../auth.js";
 import { createCampaign, listCampaigns, updateCampaign } from "../gtm/db.js";
 import { getDrivers } from "../drivers/registry.js";
 import { connectUrl, hasMetaToken } from "../integrations/metaOAuth.js";
+import { provisionAgentForCampaign } from "../integrations/retellProvision.js";
 import { ownedCampaign, errorText } from "./gtm_shared.js";
 import type { AdCreative, AdPlatform, CallScript } from "../gtm/types.js";
 
@@ -206,6 +207,41 @@ export async function generateCallScriptHandler(args: {
   return { structuredContent: { ...script }, content: [{ type: "text" as const, text: out }] };
 }
 
+// ---- provision_call_agent ----
+
+export const provisionCallAgentShape = {
+  campaign_id: z.string().describe("Campaign whose AI call agent to create/refresh from its call script."),
+};
+
+export async function provisionCallAgentHandler(args: { campaign_id: string }) {
+  let auth;
+  try {
+    auth = requireAuth();
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+  const campaign = ownedCampaign(auth.api_key, args.campaign_id);
+  if (!campaign) return errorText(`Campaign not found: ${args.campaign_id}`);
+  if (!campaign.call_script) {
+    return errorText("Generate the call script first (generate_call_script).");
+  }
+  try {
+    const prov = await provisionAgentForCampaign(campaign);
+    updateCampaign(campaign.id, { retell_agent_id: prov.agent_id });
+    return {
+      structuredContent: { agent_id: prov.agent_id, live: prov.live },
+      content: [
+        {
+          type: "text" as const,
+          text: `Call agent ${prov.live ? "provisioned" : "(mock) created"}: ${prov.agent_id}. Leads on ${campaign.id} will be called with this agent.`,
+        },
+      ],
+    };
+  } catch (err) {
+    return errorText(`Agent provisioning failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 // ---- launch_campaign ----
 
 export const launchCampaignShape = {
@@ -236,6 +272,21 @@ export async function launchCampaignHandler(args: { campaign_id: string }) {
     );
   }
 
+  // Auto-provision the per-campaign AI call agent from the script (the setup step
+  // that used to be manual). Non-fatal: calls fall back to the default agent.
+  let agentNote: string;
+  if (campaign.retell_agent_id) {
+    agentNote = `\n  Call agent: ${campaign.retell_agent_id}`;
+  } else {
+    try {
+      const prov = await provisionAgentForCampaign(campaign);
+      updateCampaign(campaign.id, { retell_agent_id: prov.agent_id });
+      agentNote = `\n  Call agent: ${prov.agent_id}${prov.live ? "" : " (mock)"}`;
+    } catch (err) {
+      agentNote = `\n  ⚠️ Call-agent provisioning failed (${err instanceof Error ? err.message : String(err)}); calls fall back to the default agent. Retry with provision_call_agent.`;
+    }
+  }
+
   try {
     const result = await ad.launchCampaign(campaign);
     updateCampaign(campaign.id, { status: "active", ad_campaign_id: result.adCampaignId });
@@ -246,7 +297,7 @@ export async function launchCampaignHandler(args: { campaign_id: string }) {
       `  Budget: $${campaign.daily_budget}/day. Ad spend has started.`,
       `  Incoming form-fills will be enriched, scrubbed, and called by AI within ~60s.`,
       `  Track with get_campaign_metrics; review leads with get_leads.`,
-    ].join("\n");
+    ].join("\n") + agentNote;
 
     return {
       structuredContent: { campaign_id: campaign.id, ad_campaign_id: result.adCampaignId, status: "active" },

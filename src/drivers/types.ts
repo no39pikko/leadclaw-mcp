@@ -41,7 +41,8 @@ export interface ScrubDriver {
 
 export interface CallDriver {
   readonly name: string;
-  call(lead: Lead, script: CallScript | null): Promise<CallResult>;
+  /** agentId selects the per-campaign provisioned agent; falls back to the driver default. */
+  call(lead: Lead, script: CallScript | null, agentId?: string): Promise<CallResult>;
 }
 
 export interface CalendarEventInput {

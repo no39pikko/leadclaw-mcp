@@ -71,6 +71,7 @@ export interface Campaign {
   ad_creative: AdCreative | null;
   call_script: CallScript | null;
   ad_campaign_id: string | null; // external id from the ad platform
+  retell_agent_id: string | null; // per-campaign Retell agent (auto-provisioned from call_script)
   status: CampaignStatus;
   created_at: number;
 }

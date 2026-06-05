@@ -12,6 +12,7 @@ import {
   defineCampaignShape, defineCampaignHandler,
   generateAdCreativeShape, generateAdCreativeHandler,
   generateCallScriptShape, generateCallScriptHandler,
+  provisionCallAgentShape, provisionCallAgentHandler,
   launchCampaignShape, launchCampaignHandler,
   pauseCampaignShape, pauseCampaignHandler,
   adjustBudgetShape, adjustBudgetHandler,
@@ -83,6 +84,13 @@ export function registerAllTools(server: McpServer): void {
       "The opener references the ad the lead just responded to. Call after define_campaign.",
     inputSchema: generateCallScriptShape,
   }, generateCallScriptHandler);
+
+  server.registerTool("provision_call_agent", {
+    title: "Provision the AI call agent",
+    description:
+      "Create (or refresh) the campaign's own AI voice agent from its call script — this is what makes the AI call leads with the right, vertical-specific pitch. Normally done automatically at launch_campaign; call to set up or refresh manually after editing the script.",
+    inputSchema: provisionCallAgentShape,
+  }, provisionCallAgentHandler);
 
   server.registerTool("launch_campaign", {
     title: "Launch a campaign (starts ad spend)",

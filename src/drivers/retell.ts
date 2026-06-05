@@ -21,7 +21,7 @@ export class RetellCallDriver implements CallDriver {
   private agentId = process.env.RETELL_AGENT_ID ?? "";
   private from = process.env.RETELL_FROM_NUMBER ?? "";
 
-  async call(lead: Lead, script: CallScript | null): Promise<CallResult> {
+  async call(lead: Lead, script: CallScript | null, agentId?: string): Promise<CallResult> {
     if (!this.from) throw new Error("RETELL_FROM_NUMBER not set");
 
     const createRes = await fetch(`${API}/v2/create-phone-call`, {
@@ -30,7 +30,7 @@ export class RetellCallDriver implements CallDriver {
       body: JSON.stringify({
         from_number: this.from,
         to_number: lead.phone,
-        override_agent_id: this.agentId || undefined,
+        override_agent_id: agentId || this.agentId || undefined,
         retell_llm_dynamic_variables: {
           lead_name: lead.name,
           company: lead.company,

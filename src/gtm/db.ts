@@ -35,11 +35,12 @@ db.exec(`
     ad_targeting   TEXT NOT NULL DEFAULT '{}',
     daily_budget   REAL NOT NULL DEFAULT 0,
     constraints    TEXT NOT NULL DEFAULT '{}',
-    ad_creative    TEXT,
-    call_script    TEXT,
-    ad_campaign_id TEXT,
-    status         TEXT NOT NULL DEFAULT 'draft',
-    created_at     INTEGER NOT NULL
+    ad_creative      TEXT,
+    call_script      TEXT,
+    ad_campaign_id   TEXT,
+    retell_agent_id  TEXT,
+    status           TEXT NOT NULL DEFAULT 'draft',
+    created_at       INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_campaigns_account ON campaigns(account_id);
 
@@ -107,6 +108,13 @@ db.exec(`
   );
 `);
 
+// Migrate DBs created before retell_agent_id existed.
+try {
+  db.exec("ALTER TABLE campaigns ADD COLUMN retell_agent_id TEXT");
+} catch {
+  /* column already exists */
+}
+
 // ---- Row mappers ----
 
 function rowToCampaign(r: Record<string, unknown>): Campaign {
@@ -121,6 +129,7 @@ function rowToCampaign(r: Record<string, unknown>): Campaign {
     ad_creative: r.ad_creative ? (JSON.parse(r.ad_creative as string) as AdCreative) : null,
     call_script: r.call_script ? (JSON.parse(r.call_script as string) as CallScript) : null,
     ad_campaign_id: (r.ad_campaign_id as string) ?? null,
+    retell_agent_id: (r.retell_agent_id as string) ?? null,
     status: r.status as CampaignStatus,
     created_at: r.created_at as number,
   };
@@ -215,6 +224,7 @@ export function updateCampaign(
     ad_creative: AdCreative;
     call_script: CallScript;
     ad_campaign_id: string;
+    retell_agent_id: string;
     status: CampaignStatus;
     daily_budget: number;
   }>
@@ -224,6 +234,7 @@ export function updateCampaign(
   if (patch.ad_creative !== undefined) { sets.push("ad_creative = @ad_creative"); params.ad_creative = JSON.stringify(patch.ad_creative); }
   if (patch.call_script !== undefined) { sets.push("call_script = @call_script"); params.call_script = JSON.stringify(patch.call_script); }
   if (patch.ad_campaign_id !== undefined) { sets.push("ad_campaign_id = @ad_campaign_id"); params.ad_campaign_id = patch.ad_campaign_id; }
+  if (patch.retell_agent_id !== undefined) { sets.push("retell_agent_id = @retell_agent_id"); params.retell_agent_id = patch.retell_agent_id; }
   if (patch.status !== undefined) { sets.push("status = @status"); params.status = patch.status; }
   if (patch.daily_budget !== undefined) { sets.push("daily_budget = @daily_budget"); params.daily_budget = patch.daily_budget; }
   if (sets.length === 0) return getCampaign(id);

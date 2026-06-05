@@ -92,7 +92,7 @@ export class MockScrubDriver implements ScrubDriver {
 
 export class MockCallDriver implements CallDriver {
   readonly name = "mock-call";
-  async call(lead: Lead, _script: CallScript | null): Promise<CallResult> {
+  async call(lead: Lead, _script: CallScript | null, _agentId?: string): Promise<CallResult> {
     const roll = Math.random();
     // Warm lead: hung up immediately ~10%, no-answer ~20%, otherwise reached pitch.
     if (roll < 0.1) {
