@@ -12,7 +12,8 @@
 import { baseUrl } from "./metaOAuth.js";
 import type { Campaign } from "../gtm/types.js";
 
-const ADS = "https://googleads.googleapis.com/v17";
+// Google sunsets API versions ~yearly; keep this current (override via env).
+const ADS = `https://googleads.googleapis.com/${process.env.GOOGLE_ADS_API_VERSION || "v20"}`;
 
 function headers(accessToken: string): Record<string, string> {
   const h: Record<string, string> = {

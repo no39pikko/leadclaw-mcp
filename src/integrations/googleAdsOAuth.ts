@@ -11,7 +11,7 @@ import { baseUrl } from "./metaOAuth.js";
 const AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/adwords";
-const ADS = "https://googleads.googleapis.com/v17";
+const ADS = `https://googleads.googleapis.com/${process.env.GOOGLE_ADS_API_VERSION || "v20"}`;
 
 export interface GoogleTokens {
   access_token: string;
