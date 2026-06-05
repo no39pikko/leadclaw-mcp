@@ -114,7 +114,10 @@ export async function provisionAgentForCampaign(campaign: Campaign): Promise<Pro
     body: JSON.stringify({
       response_engine: { type: "retell-llm", llm_id: llm.llm_id },
       voice_id: process.env.RETELL_VOICE_ID || "retell-Cimo",
-      agent_name: `GTM ${campaign.id}`,
+      // Name carries the customer + campaign so agents are identifiable inside our
+      // shared Retell account (the DB is the source of truth: campaign.account_id
+      // <-> campaign.retell_agent_id).
+      agent_name: `GTM | ${getAccount(campaign.account_id)?.company_name || campaign.account_id} | ${campaign.id}`,
       post_call_analysis_data: [
         {
           type: "string",

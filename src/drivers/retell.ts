@@ -31,6 +31,8 @@ export class RetellCallDriver implements CallDriver {
         from_number: this.from,
         to_number: lead.phone,
         override_agent_id: agentId || this.agentId || undefined,
+        // Ties each call in our shared Retell account back to our records.
+        metadata: { lead_id: lead.id, campaign_id: lead.campaign_id },
         retell_llm_dynamic_variables: {
           lead_name: lead.name,
           company: lead.company,
