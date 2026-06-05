@@ -1,8 +1,9 @@
 import { z } from "zod/v3";
 import { requireAuth, authErrorResponse } from "../auth.js";
 import { createCampaign, listCampaigns, updateCampaign } from "../gtm/db.js";
-import { getDrivers } from "../drivers/registry.js";
-import { connectUrl, hasMetaToken } from "../integrations/metaOAuth.js";
+import { getAdDriver } from "../drivers/registry.js";
+import { connectUrl as metaConnectUrl, hasMetaToken } from "../integrations/metaOAuth.js";
+import { connectUrl as googleConnectUrl, hasGoogleConnection } from "../integrations/googleAdsOAuth.js";
 import { provisionAgentForCampaign } from "../integrations/retellProvision.js";
 import { ownedCampaign, errorText } from "./gtm_shared.js";
 import type { AdCreative, AdPlatform, CallScript } from "../gtm/types.js";
@@ -265,10 +266,15 @@ export async function launchCampaignHandler(args: { campaign_id: string }) {
     return errorText(`Cannot launch yet — missing: ${missing.join(", ")}.`);
   }
 
-  const { ad } = getDrivers();
+  const ad = getAdDriver(campaign.constraints.platform);
   if (ad.name === "meta-lead-ads" && !hasMetaToken(auth.api_key)) {
     return errorText(
-      `Connect your Meta ad account first — open this link and authorize:\n${connectUrl(auth.api_key)}\nThen run launch_campaign again.`
+      `Connect your Meta ad account first — open this link and authorize:\n${metaConnectUrl(auth.api_key)}\nThen run launch_campaign again.`
+    );
+  }
+  if (ad.name === "google-ads" && !hasGoogleConnection(auth.api_key)) {
+    return errorText(
+      `Connect your Google Ads account first — open this link and authorize:\n${googleConnectUrl(auth.api_key)}\nThen run launch_campaign again.`
     );
   }
 
@@ -325,7 +331,7 @@ export async function pauseCampaignHandler(args: { campaign_id: string }) {
   if (!campaign) return errorText(`Campaign not found: ${args.campaign_id}`);
 
   try {
-    const { ad } = getDrivers();
+    const ad = getAdDriver(campaign.constraints.platform);
     await ad.pauseCampaign(campaign);
     updateCampaign(campaign.id, { status: "paused" });
     return {
@@ -355,7 +361,7 @@ export async function adjustBudgetHandler(args: { campaign_id: string; daily_bud
   if (!campaign) return errorText(`Campaign not found: ${args.campaign_id}`);
 
   try {
-    const { ad } = getDrivers();
+    const ad = getAdDriver(campaign.constraints.platform);
     await ad.adjustBudget(campaign, args.daily_budget);
     updateCampaign(campaign.id, { daily_budget: args.daily_budget });
     return {

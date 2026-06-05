@@ -32,7 +32,10 @@ import { ApolloEnrichDriver } from "./apollo.js";
 import { TwilioScrubDriver } from "./twilio.js";
 import { GoogleCalendarDriver } from "./google.js";
 import { NotionCrmDriver } from "./notion.js";
+import { GoogleAdsDriver } from "./googleAds.js";
 import { hasCredentials, isAuthorized } from "../calendar/auth.js";
+import { googleAdsConfigured } from "../integrations/googleAdsOAuth.js";
+import { metaConfigured } from "../integrations/metaOAuth.js";
 
 const MODE = process.env.DRIVER_MODE ?? "auto";
 
@@ -47,7 +50,7 @@ export function getDrivers(): DriverSet {
   if (cached) return cached;
   const env = process.env;
   cached = {
-    ad: choose<AdDriver>(!!env.META_ACCESS_TOKEN, () => new MetaLeadAdsDriver(), () => new MockAdDriver()),
+    ad: getAdDriver("meta"), // default for /health summary; real use is per-campaign via getAdDriver(platform)
     enrich: choose<EnrichDriver>(!!env.APOLLO_API_KEY, () => new ApolloEnrichDriver(), () => new MockEnrichDriver()),
     scrub: choose<ScrubDriver>(
       !!(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN),
@@ -67,6 +70,22 @@ export function getDrivers(): DriverSet {
     ),
   };
   return cached;
+}
+
+/**
+ * Pick the ad driver for a campaign's platform. The AdDriver is per-campaign
+ * (not a global singleton) so different customers/campaigns can run on Meta or
+ * Google. Falls back to mock when that platform's keys are absent.
+ */
+const adInstances: { meta?: AdDriver; google?: AdDriver; mock?: AdDriver } = {};
+export function getAdDriver(platform: string): AdDriver {
+  const mock = () => (adInstances.mock ??= new MockAdDriver());
+  if (MODE === "mock") return mock();
+  if (platform === "google") {
+    return googleAdsConfigured() ? (adInstances.google ??= new GoogleAdsDriver()) : mock();
+  }
+  const metaReady = !!process.env.META_ACCESS_TOKEN || metaConfigured();
+  return metaReady ? (adInstances.meta ??= new MetaLeadAdsDriver()) : mock();
 }
 
 /** For /health and the runbook — which driver is live vs mock right now. */

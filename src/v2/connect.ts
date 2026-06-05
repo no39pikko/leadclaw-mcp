@@ -12,6 +12,13 @@ import {
   metaConfigured,
   storeMetaConnection,
 } from "../integrations/metaOAuth.js";
+import {
+  buildAuthUrl as googleAuthUrl,
+  exchangeCode as googleExchange,
+  fetchCustomerId,
+  googleAdsConfigured,
+  storeGoogleConnection,
+} from "../integrations/googleAdsOAuth.js";
 
 export const connectRouter = Router();
 
@@ -51,6 +58,47 @@ connectRouter.get("/meta/callback", async (req, res) => {
     const defaults = await fetchDefaults(accessToken);
     storeMetaConnection(apiKey, { access_token: accessToken, ...defaults, obtained_at: Date.now() });
     res.send(page("Connected", "<h2>✅ Meta account connected</h2><p>You can close this tab and go back to Claude. Your campaigns will run on your ad account.</p>"));
+  } catch (err) {
+    res.status(500).send(page("Connection failed", `<h2>Connection failed</h2><p>${err instanceof Error ? err.message : String(err)}</p>`));
+  }
+});
+
+connectRouter.get("/google", (req, res) => {
+  if (!googleAdsConfigured()) {
+    res.status(503).send(page("Not configured", "<h2>Google Ads connection isn't enabled yet</h2><p>Admin needs GOOGLE_CLIENT_ID/SECRET and GOOGLE_ADS_DEVELOPER_TOKEN.</p>"));
+    return;
+  }
+  const apiKey = String(req.query.api_key ?? "");
+  if (!apiKey || !getAccount(apiKey)) {
+    res.status(401).send(page("Invalid link", "<h2>Invalid or expired link</h2><p>Ask Claude for a fresh connect link.</p>"));
+    return;
+  }
+  res.redirect(googleAuthUrl(apiKey));
+});
+
+connectRouter.get("/google/callback", async (req, res) => {
+  const code = String(req.query.code ?? "");
+  const apiKey = String(req.query.state ?? "");
+  const error = req.query.error;
+  if (error) {
+    res.status(400).send(page("Connection cancelled", `<h2>Connection cancelled</h2><p>${String(error)}</p>`));
+    return;
+  }
+  if (!code || !apiKey || !getAccount(apiKey)) {
+    res.status(400).send(page("Bad request", "<h2>Missing or invalid parameters</h2>"));
+    return;
+  }
+  try {
+    const { access_token, refresh_token, expires_in } = await googleExchange(code);
+    const customer_id = await fetchCustomerId(access_token);
+    storeGoogleConnection(apiKey, {
+      access_token,
+      refresh_token,
+      expires_at: Date.now() + expires_in * 1000,
+      customer_id,
+      obtained_at: Date.now(),
+    });
+    res.send(page("Connected", "<h2>✅ Google Ads connected</h2><p>You can close this tab and return to Claude. Your campaigns will run on your Google Ads account.</p>"));
   } catch (err) {
     res.status(500).send(page("Connection failed", `<h2>Connection failed</h2><p>${err instanceof Error ? err.message : String(err)}</p>`));
   }

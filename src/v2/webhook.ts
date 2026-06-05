@@ -10,7 +10,7 @@
  */
 import { Router } from "express";
 import { createLead, getCampaign } from "../gtm/db.js";
-import { getDrivers } from "../drivers/registry.js";
+import { getAdDriver } from "../drivers/registry.js";
 import { speedToLead } from "../gtm/pipeline.js";
 
 export const leadWebhookRouter = Router();
@@ -37,7 +37,7 @@ leadWebhookRouter.post("/lead/:campaignId", async (req, res) => {
 
   let parsed;
   try {
-    const { ad } = getDrivers();
+    const ad = getAdDriver(campaign.constraints.platform);
     parsed = await ad.parseLeadWebhook(req.body, campaign);
   } catch (err) {
     res.status(400).json({ error: `Could not parse lead payload: ${err instanceof Error ? err.message : String(err)}` });
